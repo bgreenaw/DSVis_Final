@@ -1,5 +1,5 @@
 ---
-title: "Shootings in School Districts"
+title: "Shootings within South Bend School Boundries"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
@@ -8,31 +8,63 @@ runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
+library(flexdashboard)
+library(shiny)
+library(jsonlite)
+library(maptools)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(purrr)
+library(leaflet)
 library(sf)
 
-sb_elem <- st_read("South_Bend_Elementary_School_District_Boundaries.shp")
-sb_middle <- st_read("South_Bend_Middle_School_District_Boundaries.shp")
-sb_high <- st_read("South_Bend_High_School_District_Boundaries.shp")
+# 
+# sb_elem <- st_read("South_Bend_Elementary_School_District_Boundaries.shp") %>%
+#   select(SchoolName) %>%
+#   mutate(Type="Elementary")
+# sb_middle <- st_read("South_Bend_Middle_School_District_Boundaries.shp")%>%
+#   select(SchoolName) %>%
+#   mutate(Type="Middle")
+# sb_high <- st_read("South_Bend_High_School_District_Boundaries.shp") %>%
+#   select(SchoolName) %>%
+#   mutate(Type="High")
+# 
+# schools <- rbind(sb_elem, sb_middle, sb_high)
+# 
+# shootings <- st_read("Criminally_Assaulted_Shootings.shp")
+# 
+# classify_df <- shootings %>%
+#   select(USER_Year, USER_Fatal)
+# 
+# 
+# remote_data <- st_join(x = schools, classify_df) %>%
+#   group_by(SchoolName, Type, USER_Year)
+# 
+# save(shootings, remote_data, file="remote_data.rda")
+load('remote_data.rda')
 
-shootings <- st_read("Criminally_Assaulted_Shootings.shp")
-
+remote_data.df <- remote_data %>% st_set_geometry(NULL)
+shootings.df <- shootings %>% st_set_geometry(NULL)
 ```
 
 Sidebar {.sidebar}
 =======================================================================
 
-### cran.rstudio.com
-
-The streaming data is a 1-week-delayed livestream of download
-logs from  cran.rstudio.com. The server code for that service is at [jcheng5/cransim](https://github.com/jcheng5/cransim).
+### <strong>Dashboard Controls<strong>
 
 
 ```{r}
-# Rate at which to flag high download traffic
-sliderInput("rateThreshold", "Warn when rate exceeds:",
-            min = 0, max = 50, value = 3, step = 0.1
-)
+selectInput(inputId = "year", label = h3("Years"), 
+            choices = list("2015" = 2015, "2016" = 2016, "2017" = 2017, "2018" = 2018, "2019" = 2019), selected = 2019)
 
+selectInput(inputId = "fatal", label = h3("Shooting"), 
+            choices = list("Yes" = "Yes", "No" = "No", "All" = "All"), selected = "All")
+
+selectInput(inputId = "school", label = h3("School Boundries"), 
+            choices = list("Elementary School" = 'Elementary', 
+                           "Middle School" = "Middle", 
+                           "High School" = "High"), selected = 1)
 
 ```
 
@@ -43,53 +75,59 @@ Dashboard
 Row
 -----------------------------------------------------------------------
 
-### Downloads per sec (last 5 min) {.value-box}
+### Total Shootings {.value-box}
 
 ```{r}
-# downloadRate is a reactive expression that computes the download
-# rate during this dashboard's lifetime.
-startTime <- as.numeric(Sys.time())
-downloadRate <- reactive({
-  elapsed <- as.numeric(Sys.time()) - startTime
-  nrow(pkgData()) / min(maxAgeSecs, elapsed)
+
+total.shootings <- reactive({
+  shootings.df %>% 
+    filter(USER_Year == input$year) %>% 
+    group_by(USER_Year) %>% 
+    summarise(count=n()) %>%
+    .$count %>% 
+    return()
 })
 
-# Emit the download rate
+
 renderValueBox({
-  rate <- formatC(downloadRate(), digits = 1, format = "f")
+
+  
   valueBox(
-    value = rate,
-    icon = "fa-area-chart",
-    color = if (rate >= input$rateThreshold) "warning" else "primary"
+    value = total.shootings(),
+    #icon = "fa-area-chart",
+    #color = if (rate >= input$rateThreshold) "warning" else "primary"
   )
 })
 ```
 
-### Total downloads {.value-box}
+### Proportion Fatal {.value-box}
 
 ```{r}
-# dlCount is a reactive expression that keeps track of the total
-# number of rows that have ever appeared through pkgStream.
-dlCount <- downloadCount(pkgStream)
+total.fatal <- reactive({
+  tmp <- shootings.df %>% 
+    filter(USER_Year == input$year, USER_Fatal == 'Yes') %>% 
+    group_by(USER_Year) %>% 
+    summarise(count=n()) %>%
+    .$count %>% 
+    return()
+})
 
-# Emit the download count
+
 renderValueBox({
-  valueBox(dlCount(), icon = "fa-download")
+
+  
+  valueBox(
+    value = paste0(round((total.fatal() / total.shootings())*100,1),"%"),
+    #icon = "fa-area-chart",
+    #color = if (rate >= input$rateThreshold) "warning" else "primary"
+  )
 })
 ```
 
 ### Unique users {.value-box}
 
 ```{r}
-# usrCount is a reactive expression that keeps an approximate
-# count of all of the unique users that have been seen since the
-# app started.
-usrCount <- userCount(pkgStream)
 
-# Emit the user count
-renderValueBox({
-  valueBox(value = usrCount(), icon = "fa-users")
-})
 ```
 
 Row
@@ -98,35 +136,12 @@ Row
 ### Popularity by package (last 5 min) {data-width=700}
 
 ```{r}
-renderBubbles({
-  if (nrow(pkgData()) == 0)
-    return()
 
-  order <- unique(pkgData()$package)
-  df <- pkgData() %>%
-    group_by(package) %>%
-    tally() %>%
-    arrange(desc(n), tolower(package)) %>%
-    # Just show the top 60, otherwise it gets hard to see
-    head(60)
-
-  bubbles(df$n, df$package, key = df$package)
-})
 ```
 
 ### Percent of downloads (last 5 min) {data-width=340}
 
 ```{r}
-renderTable({
-  pkgData() %>%
-    group_by(package) %>%
-    tally() %>%
-    arrange(desc(n), tolower(package)) %>%
-    mutate(percentage = n / nrow(pkgData()) * 100) %>%
-    select("Package" = package, "Percent" = percentage) %>%
-    as.data.frame() %>%
-    head(30)
-}, digits = 1)
 
 ```
 
@@ -136,11 +151,6 @@ Recent Downloads
 ### Recent Downlads
 
 ```{r}
-renderTable({
-  downloads <- tail(pkgData(), n = input$maxrows)
-  downloads <- downloads[,c("date", "time", "size", "r_version", 
-                            "r_arch", "r_os", "package")]
-  downloads[order(nrow(downloads):1),]
-})
+
 ```
 
