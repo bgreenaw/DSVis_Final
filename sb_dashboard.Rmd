@@ -19,33 +19,40 @@ library(purrr)
 library(leaflet)
 library(sf)
 
+
+
+
+# city_council <- st_read("City_Council_Districts/City_Council_Districts.shp")
 # 
-# sb_elem <- st_read("South_Bend_Elementary_School_District_Boundaries.shp") %>%
-#   select(SchoolName) %>%
-#   mutate(Type="Elementary")
-# sb_middle <- st_read("South_Bend_Middle_School_District_Boundaries.shp")%>%
-#   select(SchoolName) %>%
-#   mutate(Type="Middle")
-# sb_high <- st_read("South_Bend_High_School_District_Boundaries.shp") %>%
-#   select(SchoolName) %>%
-#   mutate(Type="High")
-# 
-# schools <- rbind(sb_elem, sb_middle, sb_high)
+# pol_forc <- st_read("Police_Use_of_Force_Incidents/Police_Use_of_Force_Incidents.shp" )%>%
+#   mutate(year=lubridate::year(Date))
 # 
 # shootings <- st_read("Criminally_Assaulted_Shootings.shp")
 # 
-# classify_df <- shootings %>%
-#   select(USER_Year, USER_Fatal)
+# map_df <- shootings %>%
+#   select(year = USER_Year, fatal = USER_Fatal) %>%
+#   mutate(incident_type = "shooting") %>% 
+#   rbind(pol_forc %>% 
+#   mutate(year = lubridate::year(Date)) %>%
+#   mutate(incident_type = "force") %>% 
+#   mutate(fatal = NA) %>%
+#   select(year, fatal, incident_type))
 # 
+# shootings.df <- shootings %>% st_set_geometry(NULL)
+# remote_data <- st_join(x = city_council, map_df)
+# remote_data.df <- remote_data %>% st_set_geometry(NULL)
+# pol_forc.df <- pol_forc  %>% st_set_geometry(NULL)
 # 
-# remote_data <- st_join(x = schools, classify_df) %>%
-#   group_by(SchoolName, Type, USER_Year)
-# 
-# save(shootings, remote_data, file="remote_data.rda")
+# save(shootings.df, pol_forc.df, remote_data.df, pol_forc, shootings, remote_data, file="remote_data.rda")
 load('remote_data.rda')
 
-remote_data.df <- remote_data %>% st_set_geometry(NULL)
-shootings.df <- shootings %>% st_set_geometry(NULL)
+
+pal <- colorNumeric(
+  palette = "OrRd",
+  domain = 0:40
+)
+
+
 ```
 
 Sidebar {.sidebar}
@@ -55,16 +62,15 @@ Sidebar {.sidebar}
 
 
 ```{r}
+
+
+
+selectInput(inputId = "incident", label = h3("Incident Type"), 
+            choices = list("Criminal Shooting" = "shooting", "Police use of Force" = "force"), selected = "shooting")
+
 selectInput(inputId = "year", label = h3("Years"), 
-            choices = list("2015" = 2015, "2016" = 2016, "2017" = 2017, "2018" = 2018, "2019" = 2019), selected = 2019)
+            choices = list("2017" = 2017, "2018" = 2018, "2019" = 2019), selected = 2019)
 
-selectInput(inputId = "fatal", label = h3("Shooting"), 
-            choices = list("Yes" = "Yes", "No" = "No", "All" = "All"), selected = "All")
-
-selectInput(inputId = "school", label = h3("School Boundries"), 
-            choices = list("Elementary School" = 'Elementary', 
-                           "Middle School" = "Middle", 
-                           "High School" = "High"), selected = 1)
 
 ```
 
@@ -75,7 +81,7 @@ Dashboard
 Row
 -----------------------------------------------------------------------
 
-### Total Shootings {.value-box}
+### Criminal Shootings {.value-box}
 
 ```{r}
 
@@ -100,7 +106,7 @@ renderValueBox({
 })
 ```
 
-### Proportion Fatal {.value-box}
+### Fatal Crimial Fatal {.value-box}
 
 ```{r}
 total.fatal <- reactive({
@@ -124,28 +130,101 @@ renderValueBox({
 })
 ```
 
-### Unique users {.value-box}
+### Police Incidents {.value-box}
 
 ```{r}
+Pol_inc <- reactive({
+  tmp <- pol_forc.df %>% 
+    filter(year == input$year) %>% 
+    group_by(year) %>% 
+    summarise(count=n()) %>%
+    .$count %>% 
+    return()
+})
 
+
+renderValueBox({
+
+  
+  valueBox(
+    value = Pol_inc(),
+    #icon = "fa-area-chart",
+    #color = if (rate >= input$rateThreshold) "warning" else "primary"
+  )
+})
+```
+
+
+### Proportion of Police Injurred {.value-box}
+
+```{r}
+pol_inj <- reactive({
+  tmp <- pol_forc.df %>% 
+    filter(year == input$year, Off_Injure =="Yes") %>% 
+    group_by(year) %>% 
+    summarise(count=n()) %>%
+    .$count %>% 
+    return()
+})
+
+
+renderValueBox({
+
+  
+  valueBox(
+    value = paste0(round((pol_inj() / Pol_inc())*100,1),"%"),
+    #icon = "fa-area-chart",
+    #color = if (rate >= input$rateThreshold) "warning" else "primary"
+  )
+})
 ```
 
 Row
 -----------------------------------------------------------------------
 
-### Popularity by package (last 5 min) {data-width=700}
+### Incidents in city Council Boundries {data-width=700}
 
 ```{r}
+map_reac <- reactive({
+  tmp <- remote_data %>% 
+    filter(year==input$year, incident_type == input$incident) %>% 
+    group_by(Dist, year) %>%
+    summarise(count=n()) %>%
+    return()
+})
+
+renderLeaflet({
+  leaflet() %>% 
+  addProviderTiles(providers$Stamen.Toner) %>% 
+  addPolygons(data=map_reac(), color = ~pal(count), fillOpacity = .5, popup = " Add INFO HEre")
+})
+
 
 ```
 
 ### Percent of downloads (last 5 min) {data-width=340}
 
 ```{r}
+tbl_df <- reactive({
+  if(input$incident =="shooting"){
+    tbl <- shootings.df %>% 
+      filter(USER_Year==input$year)
+  }else{
+    tbl <- pol_forc.df %>% 
+      filter(year==input$year)
+  }
+  return(tbl)
+})
+
+renderDataTable({tbl_df()})
+
+
+
+
 
 ```
 
-Recent Downloads
+Current Elected officals
 =======================================================================
 
 ### Recent Downlads
