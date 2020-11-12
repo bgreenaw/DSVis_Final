@@ -78,6 +78,21 @@ selectInput(inputId = "points", label = h3("Show locations"),
 
 ```
 
+### Contacts
+
+```{r}
+
+remote_data.df %>% 
+  select(Council_Me, Email, Dist, Num) %>%
+  filter(!duplicated(.)) %>% 
+  rename(`Council Member Name`=Council_Me, District=Dist, Number=Num) %>% 
+  knitr::kable()
+
+
+
+
+```
+
 
 
 Dashboard
@@ -233,6 +248,7 @@ renderLeaflet({
 
 ```
 
+
 ### Underlying Data {data-width=340}
 
 ```{r}
@@ -261,6 +277,7 @@ renderDataTable({tbl_df()})
 
 
 ```
+
 
 
 
