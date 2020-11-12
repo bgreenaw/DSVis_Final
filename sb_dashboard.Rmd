@@ -1,5 +1,5 @@
 ---
-title: "Shootings within South Bend School Boundries"
+title: "Criminal Shootings and police use of force withing Common Council Boundries"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
@@ -55,6 +55,7 @@ pal <- colorNumeric(
 
 ```
 
+
 Sidebar {.sidebar}
 =======================================================================
 
@@ -72,7 +73,11 @@ selectInput(inputId = "year", label = h3("Years"),
             choices = list("2017" = 2017, "2018" = 2018, "2019" = 2019), selected = 2019)
 
 
+selectInput(inputId = "points", label = h3("Show locations"), 
+            choices = list("Yes" = TRUE, "No" = FALSE), selected = "No")
+
 ```
+
 
 
 Dashboard
@@ -193,25 +198,58 @@ map_reac <- reactive({
     return()
 })
 
+points_reac <- reactive({
+ if(input$points){
+    tmp=shootings %>% 
+     filter(USER_Year==input$year) %>% 
+      rename(date = USER_Date, address = IN_Street)
+  }else{
+    tmp=pol_forc %>% 
+      filter(year==input$year) %>% 
+      rename(date=Date, address = Blocked_Lo)
+  } 
+ return(tmp)
+})
+
 renderLeaflet({
-  leaflet() %>% 
-  addProviderTiles(providers$Stamen.Toner) %>% 
-  addPolygons(data=map_reac(), color = ~pal(count), fillOpacity = .5, popup = " Add INFO HEre")
+  if(input$points){
+      leaflet() %>% 
+        addProviderTiles(providers$Stamen.Toner) %>% 
+        addPolygons(data=map_reac(), color = "#d3d3d3", weight = 1, fillColor = ~pal(count), fillOpacity = .7) %>% 
+        addMarkers(data=points_reac(),
+                   clusterOptions = markerClusterOptions(),  
+                   popup=paste0("<b>Date:</b> ", map_reac()$date,"<br>",
+                                '<b>Address:</b> ', map_reac()$address))
+        
+      
+  }else{
+      leaflet() %>% 
+        addProviderTiles(providers$Stamen.Toner) %>% 
+        addPolygons(data=map_reac(), color = "#d3d3d3", weight = 1, fillColor = ~pal(count), fillOpacity = .7, popup = " Add INFO HEre")
+  }
+
 })
 
 
 ```
 
-### Percent of downloads (last 5 min) {data-width=340}
+### Underlying Data {data-width=340}
 
 ```{r}
 tbl_df <- reactive({
   if(input$incident =="shooting"){
     tbl <- shootings.df %>% 
-      filter(USER_Year==input$year)
+      filter(USER_Year==input$year) %>% 
+      select(Match_addr, USER_Date, USER_Fatal) %>% 
+      rename(Date=USER_Date, Address=Match_addr, Fatality=USER_Fatal)
+
   }else{
     tbl <- pol_forc.df %>% 
-      filter(year==input$year)
+      filter(year==input$year) %>% 
+      select(Date, Blocked_Lo, Shift, Force_Caus, Beat, Off_Injure, Call_Dispa, Call_in_Re, Response) %>%
+      rename(`Forced Caused`=Force_Caus, `Off Duty Injured`=Off_Injure, `Call Dispatcher`=Call_Dispa, `Call In Response To`=Call_in_Re, `Address`=Blocked_Lo, `Violence Type`=Response)
+
+
   }
   return(tbl)
 })
@@ -224,12 +262,8 @@ renderDataTable({tbl_df()})
 
 ```
 
-Current Elected officals
-=======================================================================
 
-### Recent Downlads
 
-```{r}
 
-```
+
 
