@@ -217,7 +217,7 @@ points_reac <- reactive({
  if(input$points){
     tmp=shootings %>% 
      filter(USER_Year==input$year) %>% 
-      rename(date = USER_Date, address = IN_Street)
+      rename(date = USER_Date, address = USER_Addre)
   }else{
     tmp=pol_forc %>% 
       filter(year==input$year) %>% 
@@ -233,8 +233,8 @@ renderLeaflet({
         addPolygons(data=map_reac(), color = "#d3d3d3", weight = 1, fillColor = ~pal(count), fillOpacity = .7) %>% 
         addMarkers(data=points_reac(),
                    clusterOptions = markerClusterOptions(),  
-                   popup=paste0("<b>Date:</b> ", map_reac()$date,"<br>",
-                                '<b>Address:</b> ', map_reac()$address))
+                   popup=paste0("<b>Date:</b> ", points_reac()$date,"<br>",
+                                '<b>Address:</b> ', points_reac()$address))
         
       
   }else{
