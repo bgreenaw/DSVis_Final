@@ -1,0 +1,12 @@
+name: sb_dashboard
+title: sb_dashboard
+username:
+account: greenawalt
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3221837
+bundleId: 3857744
+url: https://greenawalt.shinyapps.io/sb_dashboard/
+when: 1605294796.47443
+asMultiple: FALSE
+asStatic: FALSE

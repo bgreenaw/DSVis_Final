@@ -1,5 +1,5 @@
 ---
-title: "Criminal Shootings and police use of force withing Common Council Boundries"
+title: "South Bend Violence within City Council Districts"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
@@ -74,19 +74,20 @@ selectInput(inputId = "year", label = h3("Years"),
 
 
 selectInput(inputId = "points", label = h3("Show locations"), 
-            choices = list("Yes" = TRUE, "No" = FALSE), selected = "No")
+            choices = list("Yes" = TRUE, "No" = FALSE), selected = FALSE)
 
 ```
 
-### Contacts
+#### Contacts
 
-```{r}
+```{r, f}
 
 remote_data.df %>% 
   select(Council_Me, Email, Dist, Num) %>%
   filter(!duplicated(.)) %>% 
-  rename(`Council Member Name`=Council_Me, District=Dist, Number=Num) %>% 
-  knitr::kable()
+  rename(`Council Member Name`=Council_Me, District=Dist) %>% 
+  knitr::kable() %>% 
+  kableExtra::kable_styling(font_size = 8)
 
 
 
@@ -121,12 +122,12 @@ renderValueBox({
   valueBox(
     value = total.shootings(),
     #icon = "fa-area-chart",
-    #color = if (rate >= input$rateThreshold) "warning" else "primary"
+    color = if (total.shootings() >=100) "warning" else "primary"
   )
 })
 ```
 
-### Fatal Crimial Fatal {.value-box}
+### Fatal Criminal Shooting {.value-box}
 
 ```{r}
 total.fatal <- reactive({
@@ -169,7 +170,7 @@ renderValueBox({
   valueBox(
     value = Pol_inc(),
     #icon = "fa-area-chart",
-    #color = if (rate >= input$rateThreshold) "warning" else "primary"
+    color = if (Pol_inc() >= 60) "warning" else "primary"
   )
 })
 ```
@@ -202,19 +203,19 @@ renderValueBox({
 Row
 -----------------------------------------------------------------------
 
-### Incidents in city Council Boundries {data-width=700}
+### Incidents in city Council Districts {data-width=600}
 
 ```{r}
 map_reac <- reactive({
   tmp <- remote_data %>% 
     filter(year==input$year, incident_type == input$incident) %>% 
-    group_by(Dist, year) %>%
+    group_by(Dist, year, Council_Me, Num) %>%
     summarise(count=n()) %>%
     return()
 })
 
 points_reac <- reactive({
- if(input$points){
+ if(input$incident == 'Shooting'){
     tmp=shootings %>% 
      filter(USER_Year==input$year) %>% 
       rename(date = USER_Date, address = USER_Addre)
@@ -234,13 +235,25 @@ renderLeaflet({
         addMarkers(data=points_reac(),
                    clusterOptions = markerClusterOptions(),  
                    popup=paste0("<b>Date:</b> ", points_reac()$date,"<br>",
-                                '<b>Address:</b> ', points_reac()$address))
+                                '<b>Address:</b> ', points_reac()$address)) %>% 
+      addLegend("topright", pal = pal, values = 0:40,
+    title = paste0("Incident Count: ", unique(map_reac()$year)),
+    opacity = 1)
         
       
   }else{
       leaflet() %>% 
         addProviderTiles(providers$Stamen.Toner) %>% 
-        addPolygons(data=map_reac(), color = "#d3d3d3", weight = 1, fillColor = ~pal(count), fillOpacity = .7, popup = " Add INFO HEre")
+        addPolygons(data=map_reac(), color = "#d3d3d3", 
+                    weight = 1, 
+                    fillColor = ~pal(count), 
+                    fillOpacity = .7, 
+                    popup = paste0("<b>Council Member:</b> ", map_reac()$Council_Me,"<br>",
+                                   '<b>District Number:</b> ', map_reac()$Num, "<br>",
+                                   '<b>Incident Count:</b> ', map_reac()$count))%>% 
+      addLegend("topright", pal = pal, values = 0:40,
+    title = paste0("Incident Count: ", unique(map_reac()$year)),
+    opacity = 1)
   }
 
 })
@@ -249,15 +262,15 @@ renderLeaflet({
 ```
 
 
-### Underlying Data {data-width=340}
+### Underlying Data {data-width=440}
 
 ```{r}
 tbl_df <- reactive({
   if(input$incident =="shooting"){
     tbl <- shootings.df %>% 
       filter(USER_Year==input$year) %>% 
-      select(Match_addr, USER_Date, USER_Fatal) %>% 
-      rename(Date=USER_Date, Address=Match_addr, Fatality=USER_Fatal)
+      select(USER_Addre, USER_Date, USER_Fatal) %>% 
+      rename(Date=USER_Date, Address=USER_Addre, Fatality=USER_Fatal)
 
   }else{
     tbl <- pol_forc.df %>% 
