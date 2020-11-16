@@ -218,19 +218,23 @@ map_reac <- reactive({
     summarise(count=n()) %>%
     return()
 })
+
 ## Add reactive points data
 points_reac <- reactive({
- if(input$incident == 'Shooting'){
-    tmp=shootings %>% 
+  if(input$incident == "shooting"){
+    pts=shootings %>% 
      filter(USER_Year==input$year) %>% 
       rename(date = USER_Date, address = USER_Addre)
+
   }else{
-    tmp=pol_forc %>% 
+    pts=pol_forc %>% 
       filter(year==input$year) %>% 
       rename(date=Date, address = Blocked_Lo)
-  } 
- return(tmp)
+
+  }
+  return(pts)
 })
+
 
 ## Render map on dashboard
 renderLeaflet({
@@ -274,7 +278,7 @@ renderLeaflet({
 
 # Add reactive dataframe
 tbl_df <- reactive({
-  if(input$incident =="shooting"){
+  if(input$incident == "shooting"){
     tbl <- shootings.df %>% 
       filter(USER_Year==input$year) %>% 
       select(USER_Addre, USER_Date, USER_Fatal) %>% 
