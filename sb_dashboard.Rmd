@@ -20,7 +20,7 @@ library(leaflet)
 library(sf)
 
 
-
+########## Prep Data
 
 # city_council <- st_read("City_Council_Districts/City_Council_Districts.shp")
 # 
@@ -64,7 +64,7 @@ Sidebar {.sidebar}
 
 ```{r}
 
-
+### Add Controls to Dashboard
 
 selectInput(inputId = "incident", label = h3("Incident Type"), 
             choices = list("Criminal Shooting" = "shooting", "Police use of Force" = "force"), selected = "shooting")
@@ -81,7 +81,7 @@ selectInput(inputId = "points", label = h3("Show locations"),
 #### Contacts
 
 ```{r, f}
-
+### Add df of contacts
 remote_data.df %>% 
   select(Council_Me, Email, Dist, Num) %>%
   filter(!duplicated(.)) %>% 
@@ -105,7 +105,7 @@ Row
 ### Criminal Shootings {.value-box}
 
 ```{r}
-
+## Add Value box data 
 total.shootings <- reactive({
   shootings.df %>% 
     filter(USER_Year == input$year) %>% 
@@ -130,6 +130,7 @@ renderValueBox({
 ### Fatal Criminal Shooting {.value-box}
 
 ```{r}
+## Add Value box data 
 total.fatal <- reactive({
   tmp <- shootings.df %>% 
     filter(USER_Year == input$year, USER_Fatal == 'Yes') %>% 
@@ -154,6 +155,7 @@ renderValueBox({
 ### Police Incidents {.value-box}
 
 ```{r}
+## Add Value box data 
 Pol_inc <- reactive({
   tmp <- pol_forc.df %>% 
     filter(year == input$year) %>% 
@@ -179,6 +181,7 @@ renderValueBox({
 ### Proportion of Police Injurred {.value-box}
 
 ```{r}
+## Add Value box data 
 pol_inj <- reactive({
   tmp <- pol_forc.df %>% 
     filter(year == input$year, Off_Injure =="Yes") %>% 
@@ -206,6 +209,8 @@ Row
 ### Incidents in city Council Districts {data-width=600}
 
 ```{r}
+
+#Add reactive map data
 map_reac <- reactive({
   tmp <- remote_data %>% 
     filter(year==input$year, incident_type == input$incident) %>% 
@@ -213,7 +218,7 @@ map_reac <- reactive({
     summarise(count=n()) %>%
     return()
 })
-
+## Add reactive points data
 points_reac <- reactive({
  if(input$incident == 'Shooting'){
     tmp=shootings %>% 
@@ -227,6 +232,7 @@ points_reac <- reactive({
  return(tmp)
 })
 
+## Render map on dashboard
 renderLeaflet({
   if(input$points){
       leaflet() %>% 
@@ -265,6 +271,8 @@ renderLeaflet({
 ### Underlying Data {data-width=440}
 
 ```{r}
+
+# Add reactive dataframe
 tbl_df <- reactive({
   if(input$incident =="shooting"){
     tbl <- shootings.df %>% 
@@ -283,6 +291,7 @@ tbl_df <- reactive({
   return(tbl)
 })
 
+# Render datatable
 renderDataTable({tbl_df()})
 
 
